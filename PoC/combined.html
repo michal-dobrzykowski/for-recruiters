@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic SVG with Editor.js Content and Connectable Elements</title>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/paragraph@latest"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+        svg {
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+        .text-group {
+            cursor: pointer;
+        }
+        text {
+            font-family: Arial, sans-serif;
+        }
+        #editorjs {
+            background-color: #fff;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-width: 800px;
+            margin-bottom: 20px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .draggable-circle {
+            fill: blue;
+            cursor: pointer;
+        }
+        .connection-line {
+            stroke: blue;
+            stroke-width: 2px;
+        }
+        .hovered-circle {
+            fill: green;
+        }
+    </style>
+</head>
+<body>
+    <div id="editorjs"></div>
+    <button id="addButton">Add</button>
+    <svg id="svgCanvas"></svg>
+
+    <script>
+        const editor = new EditorJS({
+            holder: 'editorjs',
+            tools: {
+                header: Header,
+                list: List,
+                paragraph: Paragraph
+            },
+            placeholder: 'Enter text here...'
+        });
+
+        const addButton = document.getElementById('addButton');
+        const svgCanvas = d3.select('#svgCanvas');
+        let rectanglesData = [];
+        let linesData = [];
+        let currentId = 0;
+        const circleSize = 7;
+
+        addButton.addEventListener('click', function() {
+            editor.save().then((outputData) => {
+                let contentHeight = 0;
+                let contentWidth = 0;
+                const group = svgCanvas.append('g')
+                    .attr('class', 'text-group')
+                    .datum({ id: currentId, x: 0, y: 20 + (currentId * 100) });
+
+                outputData.blocks.forEach(block => {
+                    const { height, width } = renderBlock(group, block, contentHeight);
+                    contentHeight += height;
+                    contentWidth = Math.max(contentWidth, width);
+                });
+
+                group.insert('rect', ':first-child')
+                    .attr('width', contentWidth + 20) // Rectangle width based on content plus padding
+                    .attr('height', contentHeight + 20) // Add padding to the height
+                    .attr('fill', 'white')
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', '2')
+                    .attr('rx', '5') // Rounded corners
+                    .attr('ry', '5')
+                    .attr('x', -10) // Adjust for padding
+                    .attr('y', -10);
+
+                const rectData = { id: currentId, x: 0, y: 20 + (currentId * 100), width: contentWidth + 20, height: contentHeight + 20 };
+                rectanglesData.push(rectData);
+                currentId++;
+
+                drawCircles(rectData, group);
+                makeDraggable();
+            }).catch((error) => {
+                console.log('Saving failed: ', error);
+            });
+        });
+
+        function renderBlock(group, block, contentHeight) {
+            let lineHeight = 18; // Default line height
+            let fontSize = 14; // Default font size
+            let blockHeight = 0;
+            let maxWidth = 0;
+
+            switch (block.type) {
+                case 'header':
+                    fontSize = block.data.level === 1 ? 32 : block.data.level === 2 ? 24 : 18;
+                    lineHeight = fontSize * 1.2;
+                    break;
+                case 'paragraph':
+                    break;
+                case 'list':
+                    break;
+                default:
+                    console.log(`Unknown block type: ${block.type}`);
+            }
+
+            const textElement = group.append('text')
+                .attr('x', 10) // Start text with left padding
+                .attr('y', contentHeight + lineHeight) // Adjust for vertical alignment based on font size
+                .attr('font-size', fontSize)
+                .text(block.data.text || '');
+
+            const lineWidth = textElement.node().getComputedTextLength();
+            maxWidth = Math.max(maxWidth, lineWidth); // Update maxWidth if this line is wider
+            blockHeight = lineHeight;
+
+            return { height: blockHeight + 10, width: maxWidth + 20 }; // Add padding
+        }
+
+        function drawCircles(rectData, group) {
+            const positions = [
+                { x: -10, y: rectData.height / 2 }, // Left
+                { x: rectData.width - 10, y: rectData.height / 2 } // Right
+            ];
+
+            positions.forEach(pos => {
+                group.append("circle")
+                    .datum({ parentRect: rectData, ...pos })
+                    .attr("class", "draggable-circle")
+                    .attr("cx", pos.x)
+                    .attr("cy", pos.y)
+                    .attr("r", circleSize)
+                    .on("mouseenter", function() { d3.select(this).classed("hovered-circle", true); })
+                    .on("mouseleave", function() { d3.select(this).classed("hovered-circle", false); })
+                    .on("mousedown", function(event, d) {
+                        event.stopPropagation();
+                        startLineDrawing(event, d);
+                    });
+            });
+        }
+
+        function makeDraggable() {
+            svgCanvas.selectAll('.text-group')
+                .call(d3.drag()
+                    .on("start", dragStarted)
+                    .on("drag", dragging)
+                    .on("end", dragEnded));
+        }
+
+        function dragStarted(event, d) {
+            d3.select(this).raise();
+        }
+
+        function dragging(event, d) {
+            d.x += event.dx;
+            d.y += event.dy;
+            d3.select(this)
+                .attr("transform", `translate(${d.x}, ${d.y})`);
+            updateLines(d.id); // Update lines if any
+        }
+
+        function dragEnded() {
+            // Dragging ended
+        }
+
+        let isDrawingLine = false;
+        let lineStart = null;
+
+        function startLineDrawing(event, d) {
+            isDrawingLine = true;
+            lineStart = { x: d.x, y: d.y, parentRect: d.parentRect };
+
+            svgCanvas.on("mousemove", lineDrawing);
+            d3.select(window).on("mouseup", endLineDrawing);
+        }
+
+        function lineDrawing(event) {
+            if (!isDrawingLine) return;
+            const [x, y] = d3.pointer(event);
+
+            svgCanvas.selectAll(".temp-line").remove();
+            svgCanvas.append("line")
+                .attr("class", "connection-line temp-line")
+                .attr("x1", lineStart.x)
+                .attr("y1", lineStart.y)
+                .attr("x2", x)
+                .attr("y2", y);
+        }
+
+        function endLineDrawing(event) {
+            if (!isDrawingLine) return;
+            isDrawingLine = false;
+            svgCanvas.selectAll(".temp-line").remove();
+            const [x, y] = d3.pointer(event, svgCanvas.node());
+
+            const targetCircle = d3.select(document.elementFromPoint(event.clientX, event.clientY)).filter('.draggable-circle');
+            if (!targetCircle.empty() && targetCircle.datum().parentRect.id !== lineStart.parentRect.id) {
+                const endData = targetCircle.datum();
+                linesData.push({ x1: lineStart.x, y1: lineStart.y, x2: endData.x, y2: endData.y });
+                redrawLines();
+            }
+
+            svgCanvas.on("mousemove", null);
+            d3.select(window).on("mouseup", null);
+        }
+
+        function updateLines(rectId) {
+            // This function should be implemented to update lines when rectangles are moved.
+            // It involves recalculating the start and end points of lines connected to the moved rectangle.
+        }
+
+        function redrawLines() {
+            svgCanvas.selectAll(".permanent-line").remove();
+            linesData.forEach(line => {
+                svgCanvas.append("line")
+                    .attr("class", "connection-line permanent-line")
+                    .attr("x1", line.x1)
+                    .attr("y1", line.y1)
+                    .attr("x2", line.x2)
+                    .attr("y2", line.y2);
+            });
+        }
+    </script>
+</body>
+</html>

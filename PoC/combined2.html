@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic SVG with Editor.js Content and Connections</title>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/paragraph@latest"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+        svg {
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+        .text-group {
+            cursor: move;
+        }
+        text {
+            font-family: Arial, sans-serif;
+        }
+        #editorjs {
+            background-color: #fff;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-width: 800px;
+            margin-bottom: 20px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .draggable-circle {
+            fill: blue;
+            cursor: pointer;
+        }
+        .connection-line {
+            stroke: blue;
+            stroke-width: 2px;
+        }
+        .hovered-circle {
+            fill: green;
+        }
+    </style>
+</head>
+<body>
+    <div id="editorjs"></div>
+    <button id="addButton">Add</button>
+    <svg id="svgCanvas"></svg>
+
+    <script>
+        const editor = new EditorJS({
+            holder: 'editorjs',
+            tools: {
+                header: Header,
+                list: List,
+                paragraph: Paragraph
+            },
+            placeholder: 'Enter text here...'
+        });
+
+        const addButton = document.getElementById('addButton');
+        const svgCanvas = d3.select('#svgCanvas');
+        let elementsData = [];
+        let linesData = [];
+        let isDrawingLine = false;
+        let lineStartCircle = null;
+
+        addButton.addEventListener('click', function() {
+            editor.save().then((outputData) => {
+                let contentWidth = 0; // Reset content width for the new element
+                let contentHeight = 10; // Start with padding
+                const group = svgCanvas.append('g')
+                    .attr('class', 'text-group')
+                    .datum({}) // Initially, there's no associated data
+                    .call(d3.drag()
+                        .on("start", dragStarted)
+                        .on("drag", dragging)
+                        .on("end", dragEnded));
+
+                outputData.blocks.forEach(block => {
+                    const {height, width} = renderBlock(group, block, contentHeight);
+                    contentHeight += height + 10; // Add space for each block
+                    if(width + 20 > contentWidth) contentWidth = width + 20; // Update width if needed
+                });
+
+                const svgWidth = document.getElementById('svgCanvas').clientWidth;
+                const groupX = (svgWidth - contentWidth) / 2;
+
+                group.attr('transform', `translate(${groupX}, 0)`)
+                    .insert('rect', ':first-child')
+                    .attr('width', contentWidth)
+                    .attr('height', contentHeight)
+                    .attr('fill', 'white')
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', '2')
+                    .attr('rx', '5')
+                    .attr('ry', '5')
+                    .attr('x', 0)
+                    .attr('y', 0);
+
+                const newElementData = {
+                    group: group,
+                    width: contentWidth,
+                    height: contentHeight,
+                    x: groupX,
+                    y: 0
+                };
+                elementsData.push(newElementData);
+                drawConnectors(newElementData);
+                redrawLines();
+            }).catch((error) => {
+                console.log('Saving failed: ', error);
+            });
+        });
+
+        function renderBlock(group, block, contentHeight) {
+            let lineHeight = 18;
+            let fontSize = 14;
+            let blockHeight = 0;
+            let maxWidth = 0;
+            let textLines = [];
+
+            switch (block.type) {
+                case 'header':
+                    fontSize = block.data.level === 1 ? 32 : block.data.level === 2 ? 24 : 18;
+                    lineHeight = fontSize * 1.2;
+                    textLines.push(block.data.text);
+                    break;
+                case 'paragraph':
+                    textLines.push(block.data.text);
+                    break;
+                case 'list':
+                    block.data.items.forEach((item, index) => {
+                        const decorator = block.data.style === "ordered" ? `${index+1}.` : '•';
+                        textLines.push(`${decorator} ${item}`);
+                    });
+                    break;
+                default:
+                    console.log(`Unknown block type: ${block.type}`);
+            }
+
+            textLines.forEach((line) => {
+                const textElement = group.append('text')
+                    .attr('x', 10)
+                    .attr('y', contentHeight + blockHeight)
+                    .attr('dy', lineHeight / 2 + "px")
+                    .attr('font-size', fontSize)
+                    .text(line);
+
+                const lineWidth = textElement.node().getComputedTextLength();
+                if (lineWidth > maxWidth) maxWidth = lineWidth;
+
+                blockHeight += lineHeight;
+            });
+
+            return {height: blockHeight, width: maxWidth};
+        }
+
+        function drawConnectors(elementData) {
+            const group = elementData.group;
+            const width = elementData.width;
+            const height = elementData.height;
+            const connectors = [
+                { x: 0, y: height / 2 }, // Left
+                { x: width, y: height / 2 } // Right
+            ];
+
+            connectors.forEach(connector => {
+                group.append("circle")
+                    .datum({ elementData: elementData, connector: connector })
+                    .attr("class", "draggable-circle")
+                    .attr("cx", connector.x)
+                    .attr("cy", connector.y)
+                    .attr("r", 5)
+                    .on("mousedown", startLineDrawing)
+                    .on("mouseenter", function() { d3.select(this).classed("hovered-circle", true); })
+                    .on("mouseleave", function() { d3.select(this).classed("hovered-circle", false); });
+            });
+        }
+
+        function startLineDrawing(event, d) {
+            event.stopPropagation();
+            isDrawingLine = true;
+            const groupTransform = parseTransform(d.elementData.group.attr('transform'));
+            lineStartCircle = {
+                x: d.connector.x + groupTransform.translateX,
+                y: d.connector.y + groupTransform.translateY,
+                elementData: d.elementData
+            };
+
+            svgCanvas.on("mousemove", lineDrawing);
+            d3.select(window).on("mouseup", endLineDrawing); // Global mouseup to handle end drawing
+        }
+
+        function lineDrawing(event) {
+            const eventPosition = d3.pointer(event, svgCanvas.node());
+            svgCanvas.selectAll(".temp-line").remove();
+            svgCanvas.append("line")
+                .attr("class", "connection-line temp-line")
+                .attr("x1", lineStartCircle.x)
+                .attr("y1", lineStartCircle.y)
+                .attr("x2", eventPosition[0])
+                .attr("y2", eventPosition[1]);
+        }
+
+        function endLineDrawing(event) {
+            d3.select(window).on("mouseup", null); // Cleanup global mouseup handler
+            svgCanvas.on("mousemove", null);
+            const targetCircle = d3.select(event.target);
+            if (targetCircle.classed("draggable-circle") && isDrawingLine) {
+                const targetCircleData = targetCircle.datum();
+                const targetGroupTransform = parseTransform(targetCircleData.elementData.group.attr('transform'));
+                const endConnector = targetCircleData.connector;
+                const endX = endConnector.x + targetGroupTransform.translateX;
+                const endY = endConnector.y + targetGroupTransform.translateY;
+                
+                // Only save line if it's not connecting to itself and the target is a circle
+                if (lineStartCircle.elementData !== targetCircleData.elementData && targetCircle.classed("draggable-circle")) {
+                    linesData.push({
+                        x1: lineStartCircle.x,
+                        y1: lineStartCircle.y,
+                        x2: endX,
+                        y2: endY
+                    });
+                    redrawLines();
+                }
+            }
+            svgCanvas.selectAll(".temp-line").remove();
+            isDrawingLine = false;
+        }
+
+        function redrawLines() {
+            svgCanvas.selectAll(".permanent-line").remove();
+            linesData.forEach(line => {
+                svgCanvas.append("line")
+                    .attr("class", "connection-line permanent-line")
+                    .attr("x1", line.x1)
+                    .attr("y1", line.y1)
+                    .attr("x2", line.x2)
+                    .attr("y2", line.y2);
+            });
+        }
+
+        function dragStarted(event) {
+            if (!isDrawingLine) {
+                d3.select(this).raise();
+            }
+        }
+
+        function dragging(event, d) {
+            if (!isDrawingLine) {
+                const currentTransform = parseTransform(d3.select(this).attr("transform"));
+                const newX = currentTransform.translateX + event.dx;
+                const newY = currentTransform.translateY + event.dy;
+                d3.select(this).attr("transform", `translate(${newX}, ${newY})`);
+                elementsData.forEach(elData => {
+                    if (elData.group.node() === this) {
+                        elData.x = newX;
+                        elData.y = newY;
+                    }
+                });
+                redrawLines();
+            }
+        }
+
+        function dragEnded() {
+            // Optional: can add logic that runs after drag ends
+        }
+
+        function parseTransform(transform) {
+            const translate = transform.substring(transform.indexOf("(")+1, transform.indexOf(")")).split(/[, ]+/);
+            return {
+                translateX: parseFloat(translate[0]),
+                translateY: parseFloat(translate[1])
+            };
+        }
+    </script>
+</body>
+</html>
