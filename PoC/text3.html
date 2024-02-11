@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic SVG with Editor.js Content</title>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/paragraph@latest"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+        svg {
+            width: 100%;
+            height: 100vh; /* Set SVG height to viewport height */
+            display: block; /* Remove extra space below SVG */
+        }
+        .text-group {
+            padding: 10px;
+        }
+        text {
+            font-family: Arial, sans-serif;
+        }
+        #editorjs {
+            background-color: #fff;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-width: 800px;
+            margin-bottom: 20px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="editorjs"></div>
+    <button id="addButton">Add</button>
+    <svg id="svgCanvas"></svg>
+
+    <script>
+        const editor = new EditorJS({
+            holder: 'editorjs',
+            tools: {
+                header: Header,
+                list: List,
+                paragraph: Paragraph
+            },
+            placeholder: 'Enter text here...'
+        });
+
+        const addButton = document.getElementById('addButton');
+        const svgCanvas = d3.select('#svgCanvas');
+        let contentWidth = 0; // To calculate the maximum width of the content
+
+        addButton.addEventListener('click', function() {
+            editor.save().then((outputData) => {
+                svgCanvas.selectAll("*").remove(); // Clear previous SVG content
+                let contentHeight = 10; // Start with top padding inside the rectangle
+                const group = svgCanvas.append('g')
+                    .attr('class', 'text-group');
+
+                outputData.blocks.forEach(block => {
+                    const blockHeight = renderBlock(group, block, contentHeight);
+                    contentHeight += blockHeight + 10; // Add space after each block, including bottom padding
+                });
+
+                // Adjust group position to center content horizontally
+                const svgWidth = document.getElementById('svgCanvas').clientWidth;
+                const groupX = (svgWidth - contentWidth) / 2;
+
+                // Position the group and add a rectangle behind the text content
+                group.attr('transform', `translate(${groupX}, 0)`)
+                    .insert('rect', ':first-child')
+                    .attr('width', contentWidth) // Rectangle width based on content
+                    .attr('height', contentHeight)
+                    .attr('fill', 'white')
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', '2')
+                    .attr('rx', '5') // Rounded corners
+                    .attr('ry', '5')
+                    .attr('x', 0)
+                    .attr('y', 0);
+
+            }).catch((error) => {
+                console.log('Saving failed: ', error);
+            });
+        });
+
+        function renderBlock(group, block, contentHeight) {
+            let lineHeight = 18; // Default line height
+            let fontSize = 14; // Default font size
+            let blockHeight = 0;
+            let textLines = [];
+
+            switch (block.type) {
+                case 'header':
+                    fontSize = block.data.level === 1 ? 32 : block.data.level === 2 ? 24 : 18;
+                    lineHeight = fontSize * 1.2;
+                    textLines.push(block.data.text);
+                    break;
+                case 'paragraph':
+                    textLines.push(block.data.text);
+                    break;
+                case 'list':
+                    block.data.items.forEach((item, index) => {
+                        const decorator = block.data.style === "ordered" ? `${index+1}.` : '•';
+                        textLines.push(`${decorator} ${item}`);
+                    });
+                    break;
+                default:
+                    console.log(`Unknown block type: ${block.type}`);
+            }
+
+            textLines.forEach((line, index) => {
+                const textElement = group.append('text')
+                    .attr('x', 10) // Start text with left padding
+                    .attr('y', contentHeight + blockHeight)
+                    .attr('dy', '0.8em') // Adjust for vertical alignment based on font size
+                    .attr('font-size', fontSize)
+                    .text(line);
+
+                const lineWidth = textElement.node().getComputedTextLength();
+                if ((lineWidth + 20) > contentWidth) contentWidth = lineWidth + 20; // Update contentWidth if this line is wider
+
+                blockHeight += lineHeight; // Increase block height for each line
+            });
+
+            return blockHeight;
+        }
+    </script>
+</body>
+</html>

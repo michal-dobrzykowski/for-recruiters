@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D3.js Tree Hierarchy with Physics</title>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <style>
+    .link {
+      stroke: green;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .node rect {
+      fill: white;
+      stroke: black;
+      stroke-width: 2;
+      rx: 10;
+      ry: 10;
+    }
+
+    .node text {
+      font: 12px sans-serif;
+      text-anchor: middle;
+    }
+  </style>
+</head>
+<body>
+
+<div id="tree-container"></div>
+
+<script>
+// Data for the tree
+const treeData = {
+  name: "Root",
+  children: [
+    {
+      name: "Node 1",
+      children: [
+        { name: "Node 1.1" },
+        { name: "Node 1.2" }
+      ]
+    },
+    {
+      name: "Node 2"
+    }
+  ]
+};
+
+// Create a tree layout
+const treeLayout = d3.tree().size([400, 300]);
+
+// Create a physics simulation
+const simulation = d3.forceSimulation()
+  .force("link", d3.forceLink().id(d => d.id).distance(50))
+  .force("charge", d3.forceManyBody().strength(-100))
+  .force("center", d3.forceCenter(200, 150));
+
+// Append an SVG container to the body
+const svg = d3.select("#tree-container").append("svg")
+  .attr("width", 400)
+  .attr("height", 300);
+
+// Create a group for the tree
+const treeGroup = svg.append("g");
+
+// Update the tree layout and start the simulation
+update(treeData);
+
+// Function to update the tree
+function update(source) {
+  // Compute the new tree layout
+  const treeNodes = treeLayout(d3.hierarchy(treeData));
+  
+  // Update the nodes
+  const nodes = treeGroup.selectAll(".node")
+    .data(treeNodes.descendants(), d => d.id)
+    .enter().append("g")
+    .attr("class", "node")
+    .attr("transform", d => `translate(${d.y},${d.x})`)
+    .call(drag(simulation));
+
+  nodes.append("rect")
+    .attr("width", 80)
+    .attr("height", 30)
+    .attr("x", -40)
+    .attr("y", -15);
+
+  nodes.append("text")
+    .attr("dy", "0.35em")
+    .text(d => d.data.name);
+
+  // Update the links
+  const links = treeGroup.selectAll(".link")
+    .data(treeNodes.links(), d => d.target.id)
+    .enter().append("line")
+    .attr("class", "link")
+    .attr("x1", d => d.source.y)
+    .attr("y1", d => d.source.x)
+    .attr("x2", d => d.target.y)
+    .attr("y2", d => d.target.x);
+
+  // Update the simulation nodes and links
+  simulation.nodes(treeNodes.descendants())
+    .on("tick", () => {
+      nodes.attr("transform", d => `translate(${d.y},${d.x})`);
+      links.attr("x1", d => d.source.y).attr("y1", d => d.source.x)
+           .attr("x2", d => d.target.y).attr("y2", d => d.target.x);
+    });
+
+  simulation.force("link").links(treeNodes.links());
+}
+
+// Function to handle drag events
+function drag(simulation) {
+  function dragstarted(event, d) {
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+  }
+
+  function dragged(event, d) {
+    d.fx = event.x;
+    d.fy = event.y;
+  }
+
+  function dragended(event, d) {
+    if (!event.active) simulation.alphaTarget(0);
+    d.fx = null;
+    d.fy = null;
+  }
+
+  return d3.drag()
+    .on("start", dragstarted)
+    .on("drag", dragged)
+    .on("end", dragended);
+}
+
+// Function to add a new node
+function addNode() {
+  // Add your logic to update the treeData and call update function
+  // For example, you can add a new child to the root node
+  treeData.children.push({ name: "New Node" });
+  update(treeData);
+}
+
+// Add a button to add a new node
+d3.select("body").append("button")
+  .text("Add Node")
+  .on("click", addNode);
+</script>
+
+</body>
+</html>

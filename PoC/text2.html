@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic SVG with D3.js</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        svg {
+            border: 1px solid black;
+        }
+        .text-group {
+            padding: 10px;
+        }
+        text {
+            font-family: Arial, sans-serif;
+            font-size: 14px; /* Adjust font size as needed */
+        }
+    </style>
+</head>
+<body>
+    <textarea id="inputText" rows="4" cols="50"></textarea>
+    <button id="addButton">Add</button>
+    <svg id="svgCanvas" width="800" height="600"></svg>
+
+    <script>
+        const addButton = document.getElementById('addButton');
+        const svgCanvas = d3.select('#svgCanvas');
+        let yPos = 10; // Initial y position for the first rectangle
+
+        addButton.addEventListener('click', function() {
+            const inputText = document.getElementById('inputText').value;
+            const textLines = inputText.split('\n');
+            const padding = 20;
+            const lineHeight = 18; // Adjust based on font size
+
+            // Calculate the maximum width among all lines
+            let maxWidth = 0;
+            const tempText = svgCanvas.selectAll(null)
+                .data(textLines)
+                .enter()
+                .append('text')
+                .text(d => d)
+                .each(function() {
+                    const currentWidth = this.getComputedTextLength();
+                    if (currentWidth > maxWidth) maxWidth = currentWidth;
+                    this.remove(); // Remove after calculation
+                });
+
+            const rectWidth = maxWidth + (padding * 2);
+            const rectHeight = textLines.length * lineHeight + (padding * 2);
+
+            // Create a group to hold the rectangle and text
+            const group = svgCanvas.append('g')
+                .attr('class', 'text-group')
+                .attr('transform', `translate(10, ${yPos})`);
+
+            // Add rectangle
+            group.append('rect')
+                .attr('width', rectWidth)
+                .attr('height', rectHeight)
+                .attr('fill', 'lightgrey');
+
+            // Add multiline text, aligning it to the left but centered in the rectangle
+            textLines.forEach((line, index) => {
+                group.append('text')
+                    .attr('x', padding)
+                    .attr('y', (index * lineHeight) + padding)
+                    .attr('dy', lineHeight) // Adjust for vertical alignment
+                    .text(line);
+            });
+
+            // Adjust yPos for the next rectangle
+            yPos += rectHeight + 10; // 10 is the margin between rectangles
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Draggable Rectangles with Connections</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .draggable-rect {
+            fill: white;
+            stroke: black;
+            cursor: pointer;
+        }
+        .draggable-circle {
+            fill: blue;
+            cursor: pointer;
+        }
+        .connection-line {
+            stroke: blue;
+            stroke-width: 2px;
+        }
+        .hovered-circle {
+            fill: green;
+        }
+    </style>
+</head>
+<body>
+    <svg width="800" height="600"></svg>
+    <script>
+        const circleSize = 7;
+
+        const svg = d3.select("svg");
+        let isDrawingLine = false;
+        let lineStartCircle = null;
+        let linesData = [];
+
+        const rectanglesData = [
+            { id: 1, x: 50, y: 50, width: 200, height: 100 },
+            { id: 2, x: 200, y: 100, width: 100, height: 50 },
+            { id: 3, x: 100, y: 200, width: 100, height: 50 },
+        ];
+
+        function drawRectangles() {
+            const rectangles = svg.selectAll(".draggable-rect").data(rectanglesData, d => d.id);
+
+            rectangles.enter()
+                .append("rect")
+                .attr("class", "draggable-rect")
+                .attr("x", d => d.x)
+                .attr("y", d => d.y)
+                .attr("rx", 10)
+                .attr("ry", 10)
+                .attr("width", d => d.width)
+                .attr("height", d => d.height)
+                .call(d3.drag()
+                    .on("start", dragStarted)
+                    .on("drag", dragging)
+                    .on("end", dragEnded));
+
+            drawCircles();
+            redrawLines();
+        }
+
+        function drawCircles() {
+            svg.selectAll(".draggable-circle").remove(); // Clear existing circles
+            rectanglesData.forEach(rect => {
+                ["left", "right"].forEach(side => {
+                    const cx = side === "left" ? rect.x : rect.x + rect.width;
+                    const cy = rect.y + rect.height / 2;
+
+                    svg.append("circle")
+                        .datum({ parentRect: rect, side: side }) // Bind parent rectangle data and side to circle
+                        .attr("class", "draggable-circle")
+                        .attr("cx", cx)
+                        .attr("cy", cy)
+                        .attr("r", circleSize)
+                        .on("mousedown", function(event, d) { startLineDrawing(event, d); })
+                        .on("mouseenter", function() { if (isDrawingLine) d3.select(this).classed("hovered-circle", true); })
+                        .on("mouseleave", function() { d3.select(this).classed("hovered-circle", false); });
+                });
+            });
+        }
+
+        function dragStarted(event, d) {
+            d3.select(this).raise();
+        }
+
+        function dragging(event, d) {
+            d.x += event.dx;
+            d.y += event.dy;
+            d3.select(this)
+                .attr("x", d.x)
+                .attr("y", d.y);
+            drawCircles(); // Redraw circles to update their positions
+            updateLines(d.id); // Update lines if any
+        }
+
+        function dragEnded() {
+            // Dragging ended
+        }
+
+        function startLineDrawing(event, d) {
+            event.stopPropagation(); // Prevent rectangle drag event
+            isDrawingLine = true;
+            lineStartCircle = { x: d3.select(event.target).attr("cx"), y: d3.select(event.target).attr("cy"), rectId: d.parentRect.id, side: d.side };
+
+            svg.on("mousemove", lineDrawing);
+            svg.on("mouseup", endLineDrawing, true); // Capture phase to ensure it fires before circle's mouseup
+        }
+
+        function lineDrawing(event) {
+            if (isDrawingLine) {
+                svg.selectAll(".temp-line").remove(); // Remove existing temporary line
+                svg.append("line")
+                    .attr("class", "connection-line temp-line")
+                    .attr("x1", lineStartCircle.x)
+                    .attr("y1", lineStartCircle.y)
+                    .attr("x2", event.x)
+                    .attr("y2", event.y);
+            }
+        }
+
+        function endLineDrawing(event) {
+            svg.on("mousemove", null).on("mouseup", null, true); // Remove event listeners
+            svg.selectAll(".hovered-circle").classed("hovered-circle", false); // Reset hovered circle
+            if (isDrawingLine) {
+                svg.selectAll(".temp-line").remove(); // Remove temporary line
+                isDrawingLine = false;
+
+                const targetCircle = d3.select(event.target);
+                if (targetCircle.classed("draggable-circle") && targetCircle.datum().parentRect.id !== lineStartCircle.rectId) {
+                    const endRect = targetCircle.datum().parentRect;
+                    const endSide = targetCircle.datum().side;
+                    const endX = endSide === "left" ? endRect.x : endRect.x + endRect.width;
+                    const endY = endRect.y + endRect.height / 2;
+
+                    // Save the line data
+                    linesData.push({
+                        x1: lineStartCircle.x,
+                        y1: lineStartCircle.y,
+                        x2: endX,
+                        y2: endY,
+                        startRectId: lineStartCircle.rectId,
+                        endRectId: endRect.id
+                    });
+
+                    redrawLines();
+                }
+            }
+        }
+
+        function calculateDistance(x1, y1, x2, y2) {
+            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        }
+
+        function updateLines(rectId) {
+            linesData.forEach(line => {
+                const startRect = rectanglesData.find(d => d.id === line.startRectId);
+                const endRect = rectanglesData.find(d => d.id === line.endRectId);
+
+                // Calculate all possible distances and select the shortest
+                let shortestDistance = Infinity;
+                let shortestPair = null;
+
+                const startPoints = [
+                    { x: startRect.x, y: startRect.y + startRect.height / 2 }, // Left
+                    { x: startRect.x + startRect.width, y: startRect.y + startRect.height / 2 } // Right
+                ];
+
+                const endPoints = [
+                    { x: endRect.x, y: endRect.y + endRect.height / 2 }, // Left
+                    { x: endRect.x + endRect.width, y: endRect.y + endRect.height / 2 } // Right
+                ];
+
+                startPoints.forEach((startPoint, startIndex) => {
+                    endPoints.forEach((endPoint, endIndex) => {
+                        const distance = calculateDistance(startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+                        if (distance < shortestDistance) {
+                            shortestDistance = distance;
+                            shortestPair = { start: startPoint, end: endPoint };
+                        }
+                    });
+                });
+
+                // Update line coordinates to the shortest pair found
+                if (shortestPair) {
+                    line.x1 = shortestPair.start.x;
+                    line.y1 = shortestPair.start.y;
+                    line.x2 = shortestPair.end.x;
+                    line.y2 = shortestPair.end.y;
+                }
+            });
+            redrawLines();
+        }
+
+        function redrawLines() {
+            svg.selectAll(".permanent-line").remove(); // Clear existing lines
+            linesData.forEach(line => {
+                svg.append("line")
+                    .attr("class", "connection-line permanent-line")
+                    .attr("x1", line.x1)
+                    .attr("y1", line.y1)
+                    .attr("x2", line.x2)
+                    .attr("y2", line.y2);
+            });
+        }
+
+        drawRectangles();
+    </script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3 Tree Layout</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .node rect {
+            stroke: #000;
+            fill: #fff;
+            stroke-width: 2px;
+        }
+
+        .link {
+            fill: none;
+            stroke: #000;
+            stroke-width: 2px;
+        }
+
+        .plus-icon {
+            cursor: pointer;
+            display: none;
+        }
+
+        .node:hover .plus-icon {
+            display: block;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: #fff;
+            border: 2px solid #000;
+            z-index: 1;
+        }
+
+        .modal input {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="modal" id="myModal">
+    <input type="text" id="newNodeInput" placeholder="Enter node text">
+    <button onclick="addNode()">Add</button>
+    <button onclick="closeModal()">Close</button>
+</div>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script>
+
+    var i = 0;
+    var selectedNode;
+
+    var treeData = {
+        "name": "Root",
+        "children": [
+            {
+                "name": "Node 1",
+                "children": [
+                    { "name": "Node 1.1" },
+                    { "name": "Node 1.2" }
+                ]
+            },
+            {
+                "name": "Node 2",
+                "children": [
+                    { "name": "Node 2.1" },
+                    { "name": "Node 2.2" }
+                ]
+            }
+        ]
+    };
+
+    var margin = {top: 20, right: 90, bottom: 30, left: 90};
+    var width = window.innerWidth - margin.left - margin.right;
+    var height = window.innerHeight - margin.top - margin.bottom;
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    var treemap = d3.tree().size([height, width]);
+
+    var root = d3.hierarchy(treeData, function(d) { return d.children; });
+    root.x0 = height / 2;
+    root.y0 = 0;
+
+    root.children.forEach(collapse);
+
+    update(root);
+
+    function collapse(d) {
+        if (d.children) {
+            d._children = d.children;
+            d._children.forEach(collapse);
+            d.children = null;
+        }
+    }
+
+    function update(source) {
+
+        var treeData = treemap(root);
+
+        var nodes = treeData.descendants(),
+            links = treeData.descendants().slice(1);
+
+        nodes.forEach(function(d) { d.y = d.depth * 180 });
+
+        var node = svg.selectAll('g.node')
+            .data(nodes, function(d) { return d.id || (d.id = ++i); });
+
+        var nodeEnter = node.enter().append('g')
+            .attr('class', 'node')
+            .attr('transform', function(d) {
+                return 'translate(' + source.y0 + ',' + source.x0 + ')';
+            })
+            .on('click', click);
+
+        nodeEnter.append('rect')
+            .attr('width', 100)
+            .attr('height', 30)
+            .attr('x', -50)
+            .attr('y', -15);
+
+        nodeEnter.append('text')
+            .attr('class', 'plus-icon')
+            .attr('x', 0)
+            .attr('y', 5)
+            .text('+')
+            .on('click', function(d) {
+                openModal(d);
+                d3.event.stopPropagation();
+            });
+
+        nodeEnter.append('text')
+            .attr('x', function(d) { return d.children || d._children ? -13 : 13; })
+            .attr('dy', '.35em')
+            .attr('text-anchor', function(d) { return d.children || d._children ? 'end' : 'start'; })
+            .text(function(d) { return d.data.name; });
+
+        var nodeUpdate = node.merge(nodeEnter).transition()
+            .duration(500)
+            .attr('transform', function(d) { return 'translate(' + d.y + ',' + d.x + ')'; });
+
+        nodeUpdate.select('text').style('fill-opacity', 1);
+
+        var nodeExit = node.exit().transition()
+            .duration(500)
+            .attr('transform', function(d) { return 'translate(' + source.y + ',' + source.x + ')'; })
+            .remove();
+
+        var link = svg.selectAll('path.link')
+            .data(links, function(d) { return d.id; });
+
+        var linkEnter = link.enter().insert('path', 'g')
+            .attr('class', 'link')
+            .attr('d', function(d) {
+                var o = {x: source.x0, y: source.y0};
+                return diagonal(o, o);
+            });
+
+        link.merge(linkEnter).transition()
+            .duration(500)
+            .attr('d', function(d) { return diagonal(d, d.parent); });
+
+        link.exit().transition()
+            .duration(500)
+            .attr('d', function(d) {
+                var o = {x: source.x, y: source.y};
+                return diagonal(o, o);
+            })
+            .remove();
+
+        nodes.forEach(function(d) {
+            d.x0 = d.x;
+            d.y0 = d.y;
+        });
+    }
+
+    function click(d) {
+        if (d.children) {
+            d._children = d.children;
+            d.children = null;
+        } else {
+            d.children = d._children;
+            d._children = null;
+        }
+        update(d);
+    }
+
+    function diagonal(s, d) {
+        return 'M ' + s.y + ' ' + s.x +
+               ' C ' + (s.y + d.y) / 2 + ' ' + s.x +
+               ' ' + (s.y + d.y) / 2 + ' ' + d.x +
+               ' ' + d.y + ' ' + d.x;
+    }
+
+    function openModal(d) {
+        var modal = document.getElementById('myModal');
+        modal.style.display = 'block';
+        selectedNode = d;
+    }
+
+    function closeModal() {
+        var modal = document.getElementById('myModal');
+        modal.style.display = 'none';
+    }
+
+    function addNode() {
+        var inputVal = document.getElementById('newNodeInput').value;
+        if (inputVal.trim() !== '') {
+            var newNode = { name: inputVal, children: [] };
+            if (!selectedNode.children) {
+                selectedNode.children = [];
+            }
+            selectedNode.children.push(newNode);
+            update(selectedNode);
+            closeModal();
+        }
+    }
+
+</script>
+
+</body>
+</html>

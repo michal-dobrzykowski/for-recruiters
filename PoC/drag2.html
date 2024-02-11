@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>D3 Rects and Lines</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  body {
+    margin: 0;
+  }
+  svg {
+    width: 100%;
+    height: 100vh;
+  }
+  rect {
+    fill: white;
+    stroke: black;
+    stroke-width: 2px;
+    rx: 5px;
+    ry: 5px;
+  }
+  circle {
+    fill: blue;
+    stroke: black;
+    stroke-width: 2px;
+    cursor: pointer;
+  }
+  line {
+    stroke: blue;
+    stroke-width: 2px;
+  }
+</style>
+</head>
+<body>
+  <svg></svg>
+  <script>
+    // Data for rectangles
+const data = [
+  { x: 50, y: 50, width: 100, height: 80 },
+  { x: 200, y: 150, width: 80, height: 120 },
+  // ... more rectangles
+];
+
+// Create SVG element
+const svg = d3.select("svg");
+
+// Create rectangles
+const rects = svg.selectAll("rect")
+  .data(data)
+  .enter()
+  .append("rect");
+
+rects.attr("x", (d) => d.x)
+  .attr("y", (d) => d.y)
+  .attr("width", (d) => d.width)
+  .attr("height", (d) => d.height);
+
+// Create circles on the right edge of each rect
+const circles = svg.selectAll("circle")
+  .data(data)
+  .enter()
+  .append("circle")
+  .style("z-index", 2); // Set z-index to ensure circles are on top
+
+circles.attr("cx", (d) => d.x + d.width)
+  .attr("cy", (d) => d.y + d.height / 2)
+  .attr("r", 5);
+
+// Make rects and circles draggable
+rects.call(d3.drag()
+  .on("start", function(event, d) {
+    // Bring the dragged item to the front by updating the z-index
+    d3.select(this).raise();
+  })
+  .on("drag", (event, d) => {
+    d.x = event.x;
+    d.y = event.y;
+    rects.attr("x", (d) => d.x)
+      .attr("y", (d) => d.y);
+    circles.attr("cx", (d) => d.x + d.width)
+      .attr("cy", (d) => d.y + d.height / 2);
+    if (currentLine) {
+      currentLine.attr("x1", d.x + d.width)
+        .attr("y1", d.y + d.height / 2);
+    }
+  }));
+
+// Handle circle click and line creation/deletion
+let currentLine = null;
+
+circles.on("mousedown", (event, d) => {
+  currentLine = svg.append("line")
+    .attr("x1", d.x + d.width)
+    .attr("y1", d.y + d.height / 2)
+    .attr("x2", d.x + d.width)
+    .attr("y2", d.y + d.height / 2);
+})
+.on("mouseup", (event, d) => {
+  // Check for connection or remove line
+  const targetCircle = svg.selectAll("circle").filter((el) => {
+    const circle = el;
+    const x = event.clientX;
+    const y = event.clientY;
+    const dx = x - circle.cx.baseVal.value;
+    const dy = y - circle.cy.baseVal.value;
+    return dx * dx + dy * dy <= circle.r.baseVal.value * circle.r.baseVal.value;
+  })
+  .node();
+
+  if (targetCircle) {
+    currentLine.attr("x2", targetCircle.cx.baseVal.value)
+      .attr("y2", targetCircle.cy.baseVal.value);
+  } else {
+    svg.remove(currentLine);
+  }
+
+  currentLine = null;
+})
+.on("mousemove", (event, d) => {
+  // Update line end during drag
+  if (currentLine) {
+    currentLine.attr("x2", event.x)
+      .attr("y2", event.y);
+  }
+});
+
+  </script>
+</body>
+</html>

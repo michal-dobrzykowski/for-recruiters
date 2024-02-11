@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resizable and Draggable Box</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .resizable-box {
+      cursor: move;
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      border: 2px solid black;
+      background-color: white;
+    }
+
+    .resize-handle {
+      width: 10px;
+      height: 10px;
+      background-color: black;
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      cursor: se-resize;
+    }
+  </style>
+</head>
+<body>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Create resizable and draggable box
+    const resizableBox = d3.select("body")
+      .append("div")
+      .attr("class", "resizable-box")
+      .style("left", "50px")
+      .style("top", "50px")
+      .call(d3.drag()
+        .on("start", dragStarted)
+        .on("drag", dragged)
+        .on("end", dragEnded));
+
+    // Create resize handle
+    resizableBox.append("div")
+      .attr("class", "resize-handle")
+      .call(d3.drag()
+        .on("start", resizeStarted)
+        .on("drag", resized)
+        .on("end", resizeEnded));
+
+    // Functions for dragging
+    function dragStarted() {
+      resizableBox.raise().classed("dragging", true);
+    }
+
+    function dragged(event) {
+      resizableBox.style("left", event.x + "px")
+                  .style("top", event.y + "px");
+    }
+
+    function dragEnded() {
+      resizableBox.classed("dragging", false);
+    }
+
+    // Functions for resizing
+    function resizeStarted() {
+      resizableBox.classed("resizing", true);
+    }
+
+    function resized(event) {
+      resizableBox.style("width", event.x - parseInt(resizableBox.style("left")) + "px")
+                  .style("height", event.y - parseInt(resizableBox.style("top")) + "px");
+    }
+
+    function resizeEnded() {
+      resizableBox.classed("resizing", false);
+    }
+  });
+</script>
+
+</body>
+</html>

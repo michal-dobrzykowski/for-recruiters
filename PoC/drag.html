@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drag and Connect</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .rect {
+      fill: white;
+      stroke: black;
+      stroke-width: 2;
+      cursor: move;
+    }
+
+    .line {
+      stroke: blue;
+      stroke-width: 2;
+    }
+
+    .circle {
+      fill: blue;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script>
+  const svg = d3.select('body')
+    .append('svg')
+    .attr('width', window.innerWidth)
+    .attr('height', window.innerHeight);
+
+  const rects = [
+    { x: 50, y: 50, width: 100, height: 50 },
+    { x: 200, y: 100, width: 80, height: 40 },
+    // Add more rectangles as needed
+  ];
+
+  const lines = [];
+
+  const drag = d3.drag()
+    .on('start', dragStarted)
+    .on('drag', dragged)
+    .on('end', dragEnded);
+
+  const circleDrag = d3.drag()
+    .on('start', circleDragStarted)
+    .on('drag', circleDragged)
+    .on('end', circleDragEnded);
+
+  const circleClicked = (d, i) => {
+    const newLine = svg.append('line')
+      .attr('class', 'line')
+      .style('pointer-events', 'none');
+
+    lines.push({
+      line: newLine,
+      startRect: i,
+      endRect: null,
+    });
+  };
+
+  const rectClicked = (d, i) => {
+    const selectedLine = lines.find(line => line.endRect === null);
+    if (selectedLine) {
+      selectedLine.line
+        .attr('x2', d.x)
+        .attr('y2', d.y + d.height / 2);
+
+      selectedLine.endRect = i;
+    }
+  };
+
+  function dragStarted(d) {
+    d3.select(this).raise().classed('active', true);
+  }
+
+  function dragged(d) {
+    d3.select(this).attr('x', d.x = d3.event.x).attr('y', d.y = d3.event.y);
+
+    const connectedLines = lines.filter(line => line.startRect === rects.indexOf(d) && line.endRect !== null);
+
+    connectedLines.forEach(line => {
+      line.line
+        .attr('x1', d.x + d.width)
+        .attr('y1', d.y + d.height / 2);
+    });
+  }
+
+  function dragEnded(d) {
+    d3.select(this).classed('active', false);
+  }
+
+  function circleDragStarted(d) {
+    d3.select(this).raise().classed('active', true);
+  }
+
+  function circleDragged(d) {
+    const selectedLine = lines.find(line => line.line.classed('active'));
+    if (selectedLine) {
+      selectedLine.line
+        .attr('x1', d.x + d.width)
+        .attr('y1', d.y + d.height / 2)
+        .attr('x2', d3.event.x)
+        .attr('y2', d3.event.y);
+    }
+  }
+
+  function circleDragEnded(d) {
+    const selectedLine = lines.find(line => line.line.classed('active'));
+    if (selectedLine) {
+      const endRectIndex = findNearestRectIndex(d3.event.x, d3.event.y);
+
+      if (endRectIndex !== -1) {
+        const endRect = rects[endRectIndex];
+        selectedLine.line
+          .attr('x2', endRect.x)
+          .attr('y2', endRect.y + endRect.height / 2);
+
+        selectedLine.endRect = endRectIndex;
+      } else {
+        selectedLine.line.remove();
+        lines.splice(lines.indexOf(selectedLine), 1);
+      }
+
+      d3.select(this).classed('active', false);
+    }
+  }
+
+  function findNearestRectIndex(x, y) {
+    let minDistance = Infinity;
+    let nearestRectIndex = -1;
+
+    rects.forEach((rect, index) => {
+      const distance = Math.sqrt((rect.x - x) ** 2 + ((rect.y + rect.height / 2) - y) ** 2);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestRectIndex = index;
+      }
+    });
+
+    return nearestRectIndex;
+  }
+
+  svg.selectAll('.rect')
+    .data(rects)
+    .enter().append('rect')
+    .attr('class', 'rect')
+    .attr('x', d => d.x)
+    .attr('y', d => d.y)
+    .attr('width', d => d.width)
+    .attr('height', d => d.height)
+    .on('click', rectClicked)
+    .call(drag);
+
+  svg.selectAll('.circle')
+    .data(rects)
+    .enter().append('circle')
+    .attr('class', 'circle')
+    .attr('cx', d => d.x + d.width)
+    .attr('cy', d => d.y + d.height / 2)
+    .attr('r', 8)
+    .on('mousedown', circleDragStarted)
+    .on('mouseup', circleDragEnded)
+    .call(circleDrag);
+
+  svg.on('click', () => {
+    const selectedLineIndex = lines.findIndex(line => line.endRect === null);
+    if (selectedLineIndex !== -1) {
+      lines[selectedLineIndex].line.remove();
+      lines.splice(selectedLineIndex, 1);
+    }
+  });
+</script>
+
+</body>
+</html>
