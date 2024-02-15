@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        svg {
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script>
+        const svgWidth = 400;
+        const svgHeight = 300;
+
+        const x1 = 50;
+        const y1 = 100;
+        const x2 = 350;
+        const y2 = 150;
+
+        // Function to create a straight line with arrow
+        function drawStraightLineWithArrow() {
+            const svg = d3.select("body").append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight);
+
+            // Draw line
+            svg.append("line")
+                .attr("x1", x1)
+                .attr("y1", y1)
+                .attr("x2", x2)
+                .attr("y2", y2)
+                .attr("stroke", "blue")
+                .attr("stroke-width", 2);
+
+            // Add arrow marker
+            svg.append("defs").append("marker")
+                .attr("id", "arrow")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 8)
+                .attr("refY", 0)
+                .attr("markerWidth", 8)
+                .attr("markerHeight", 8)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("class", "arrowHead");
+
+            // Apply the arrow marker to the line
+            svg.append("line")
+                .attr("x1", x1)
+                .attr("y1", y1)
+                .attr("x2", x2)
+                .attr("y2", y2)
+                .attr("stroke", "blue")
+                .attr("stroke-width", 2)
+                .attr("marker-end", "url(#arrow)");
+        }
+
+        // Function to create a smooth curved line with arrow
+        function drawSmoothCurvedLineWithArrow() {
+            const svg = d3.select("body").append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight);
+
+            const link = d3.linkHorizontal()
+                .x(d => d[1])
+                .y(d => d[0]);
+
+            const pathData = link({ source: [y1, x1], target: [y2, x2] });
+
+            // Draw path
+            svg.append("path")
+                .attr("d", pathData)
+                .attr("stroke", "green")
+                .attr("stroke-width", 2)
+                .attr("fill", "none");
+
+            // Add arrow marker
+            svg.append("defs").append("marker")
+                .attr("id", "arrow")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 8)
+                .attr("refY", 0)
+                .attr("markerWidth", 8)
+                .attr("markerHeight", 8)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("class", "arrowHead");
+
+            // Apply the arrow marker to the path
+            svg.append("path")
+                .attr("d", pathData)
+                .attr("stroke", "green")
+                .attr("stroke-width", 2)
+                .attr("fill", "none")
+                .attr("marker-end", "url(#arrow)");
+        }
+
+        // Function to create a line with right angles and arrow
+        function drawLineWithRightAnglesAndArrow() {
+            const svg = d3.select("body").append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight);
+
+            const pathData = `M${x1},${y1} H${(x1 + x2) / 2} V${y2} H${x2}`;
+
+            // Draw path
+            svg.append("path")
+                .attr("d", pathData)
+                .attr("stroke", "red")
+                .attr("stroke-width", 2)
+                .attr("fill", "none");
+
+            // Add arrow marker
+            svg.append("defs").append("marker")
+                .attr("id", "arrow")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 8)
+                .attr("refY", 0)
+                .attr("markerWidth", 8)
+                .attr("markerHeight", 8)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("class", "arrowHead");
+
+            // Apply the arrow marker to the path
+            svg.append("path")
+                .attr("d", pathData)
+                .attr("stroke", "red")
+                .attr("stroke-width", 2)
+                .attr("fill", "none")
+                .attr("marker-end", "url(#arrow)");
+        }
+
+        // Call the functions
+        drawStraightLineWithArrow();
+        drawSmoothCurvedLineWithArrow();
+        drawLineWithRightAnglesAndArrow();
+    </script>
+
+</body>
+
+</html>

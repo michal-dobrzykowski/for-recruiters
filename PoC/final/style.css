@@ -1,0 +1,50 @@
+body,
+html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
+svg {
+    width: 100%;
+    height: 100vh;
+    display: block;
+}
+
+/* .text-group {
+    cursor: move;
+} */
+
+text {
+    font-family: Arial, sans-serif;
+}
+
+#editorjs {
+    background-color: #fff;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    max-width: 800px;
+    margin-bottom: 20px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.draggable-circle {
+    fill: blue;
+    cursor: pointer;
+}
+
+.connection-line {
+    stroke: blue;
+    stroke-width: 2px;
+}
+
+.hovered-circle {
+    fill: green;
+}
+
+.canvas-element-group {
+    cursor: move;
+}

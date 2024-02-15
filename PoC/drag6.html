@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Draggable Rectangles with Connections</title>
@@ -10,19 +11,23 @@
             stroke: black;
             cursor: pointer;
         }
+
         .draggable-circle {
             fill: blue;
             cursor: pointer;
         }
+
         .connection-line {
             stroke: blue;
             stroke-width: 2px;
         }
+
         .hovered-circle {
             fill: green;
         }
     </style>
 </head>
+
 <body>
     <svg width="800" height="600"></svg>
     <script>
@@ -51,6 +56,7 @@
                 .attr("ry", 10)
                 .attr("width", d => d.width)
                 .attr("height", d => d.height)
+                .on("dblclick", function (d) { alert("node was double clicked"); }) // TODO:
                 .call(d3.drag()
                     .on("start", dragStarted)
                     .on("drag", dragging)
@@ -73,9 +79,9 @@
                         .attr("cx", cx)
                         .attr("cy", cy)
                         .attr("r", circleSize)
-                        .on("mousedown", function(event, d) { startLineDrawing(event, d); })
-                        .on("mouseenter", function() { if (isDrawingLine) d3.select(this).classed("hovered-circle", true); })
-                        .on("mouseleave", function() { d3.select(this).classed("hovered-circle", false); });
+                        .on("mousedown", function (event, d) { startLineDrawing(event, d); })
+                        .on("mouseenter", function () { if (isDrawingLine) d3.select(this).classed("hovered-circle", true); })
+                        .on("mouseleave", function () { d3.select(this).classed("hovered-circle", false); });
                 });
             });
         }
@@ -127,6 +133,8 @@
                 isDrawingLine = false;
 
                 const targetCircle = d3.select(event.target);
+
+                console.log(event.target);
                 if (targetCircle.classed("draggable-circle") && targetCircle.datum().parentRect.id !== lineStartCircle.rectId) {
                     const endRect = targetCircle.datum().parentRect;
                     const endSide = targetCircle.datum().side;
@@ -207,4 +215,5 @@
         drawRectangles();
     </script>
 </body>
+
 </html>
