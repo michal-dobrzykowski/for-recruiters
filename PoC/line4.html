@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <style>
+        svg {
+            border: 1px solid #ccc;
+        }
+
+        .visible-line {
+            stroke-width: 2;
+            fill: none;
+            cursor: pointer;
+            /* Show pointer cursor on hover */
+            pointer-events: none;
+            /* Disable hover and click events on the visible line */
+        }
+
+        .invisible-line {
+            /* stroke-width: 16; */
+            stroke-width: 24;
+            stroke: transparent;
+            /* Make the line invisible */
+            fill: none;
+            cursor: pointer;
+            /* Show pointer cursor on hover */
+        }
+    </style>
+</head>
+
+<body>
+
+    <script>
+        const svgWidth = 400;
+        const svgHeight = 200;
+
+        const x1 = 50;
+        const y1 = 100;
+        const x2 = 350;
+        const y2 = 100;
+
+        // Function to create a visible line with hover and click events
+        function drawVisibleLine() {
+            const svg = d3.select("body").append("svg")
+                .attr("width", svgWidth)
+                .attr("height", svgHeight);
+
+            const lineGenerator = d3.line().curve(d3.curveLinear);
+
+            const pathData = lineGenerator([[x1, y1], [x2, y2]]);
+
+            // Create invisible line capturing hover and click events
+            svg.append("path")
+                .attr("class", "invisible-line")
+                .attr("d", pathData)
+                .on("mouseover", function () {
+                    d3.select(".visible-line").attr("stroke", "red");
+                })
+                .on("mouseout", function () {
+                    d3.select(".visible-line").attr("stroke", "blue");
+                })
+                .on("click", function () {
+                    alert("Line Clicked!");
+                });
+
+            // Create visible line
+            svg.append("path")
+                .attr("class", "visible-line")
+                .attr("stroke", "blue")
+                .attr("d", pathData);
+        }
+
+        // Call the function
+        drawVisibleLine();
+    </script>
+
+</body>
+
+</html>
