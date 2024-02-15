@@ -48,3 +48,10 @@ text {
 .canvas-element-group {
     cursor: move;
 }
+
+.no-events{
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    pointer-events: none;
+    user-select: none;
+}

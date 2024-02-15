@@ -136,6 +136,7 @@ const renderTextBlock = (group, block, contentHeight) => {
             .attr('y', contentHeight + blockHeight)
             .attr('dy', '0.8em') // Adjust for vertical alignment based on font size
             .attr('font-size', fontSize)
+            .attr("class", "content")
             .text(text);
 
         const lineWidth = textElement.node().getComputedTextLength();
@@ -168,7 +169,7 @@ const lineDrawing = (event) => {
     if (isDrawingLine) {
         removeTmpLine();
         SVG_CANVAS.append("line")
-            .attr("class", "connection-line temp-line")
+            .attr("class", "connection-line temp-line no-events")
             .attr("x1", lineStartCircle.x)
             .attr("y1", lineStartCircle.y)
             .attr("x2", x)
@@ -222,6 +223,7 @@ const endLineDrawing = (event) => {
         .selectAll(".hovered-circle")
         .classed("hovered-circle", false);
 
+    d3.selectAll(".content").classed("no-events", false);
 
     const targetCircle = d3.select(event.target);
 
@@ -263,6 +265,8 @@ const startLineDrawing = (event, d) => {
     const x = groupX + parseInt(fromCircle.attr("cx"));
     const y = groupY + parseInt(fromCircle.attr("cy"));
 
+    d3.selectAll(".content").classed("no-events", true);
+
     lineStartCircle = {
         x,
         y,
@@ -285,7 +289,7 @@ const renderCircle = (groupElement, position, x, y) => {
             startLineDrawing(event, d);
         })
         .on("mouseenter", function () {
-            if (isDrawingLine) {
+            if (isDrawingLine) {           
                 d3.select(this).classed("hovered-circle", true);
             }
         })
