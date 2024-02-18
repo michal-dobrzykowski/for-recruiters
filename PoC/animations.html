@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D3.js Animation Example</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    #container {
+      position: relative;
+      width: 400px;
+      height: 400px;
+      margin: 50px auto;
+      border: 1px solid #ccc;
+    }
+
+    .square {
+      fill: blue;
+    }
+  </style>
+</head>
+<body>
+
+<svg id="container"></svg>
+<button onclick="addSquare()">Dodaj kwadrat</button>
+<button onclick="removeSquare()">Usuń kwadrat</button>
+<button onclick="randomizePosition()">Losuj pozycję</button>
+
+<script>
+  let svg = d3.select("#container");
+
+  function addSquare() {
+    svg.append("rect")
+      .attr("class", "square")
+      .attr("width", 50)
+      .attr("height", 50)
+      .attr("x", 175)
+      .attr("y", 175)
+      .style("opacity", 0)
+      .transition()
+      .duration(1000)
+      .style("opacity", 1);
+  }
+
+  function removeSquare() {
+    svg.select(".square")
+      .transition()
+      .duration(1000)
+      .style("opacity", 0)
+      .remove();
+  }
+
+  function randomizePosition() {
+    let square = svg.select(".square");
+
+    square.transition()
+      .duration(1000)
+      .attr("x", Math.random() * 300)
+      .attr("y", Math.random() * 300);
+  }
+</script>
+
+</body>
+</html>

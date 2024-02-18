@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <title>Force-Directed Layout</title>
+    <style>
+        .element {
+            fill: blue;
+            cursor: pointer;
+        }
+
+        .line {
+            stroke: black;
+            stroke-width: 2;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="runSimulation">Run Simulation</button>
+
+    <script>
+        // Sample data
+        const elementsData = Array.from({ length: 10 }, (_, i) => ({
+            id: i + 1,
+            width: Math.floor(Math.random() * 50) + 20,
+            height: Math.floor(Math.random() * 50) + 20,
+            x: Math.random() * 500,
+            y: Math.random() * 500
+        }));
+
+        const linesData = Array.from({ length: 15 }, (_, i) => ({
+            fromId: Math.floor(Math.random() * elementsData.length) + 1,
+            toId: Math.floor(Math.random() * elementsData.length) + 1
+        }));
+
+        // Define the board size
+        const boardWidth = 1000;
+        const boardHeight = 1000;
+
+        // Create an SVG container
+        const svg = d3.select("body").append("svg")
+            .attr("width", boardWidth)
+            .attr("height", boardHeight);
+
+        // Create a force simulation
+        const simulation = d3.forceSimulation(elementsData)
+            .force("charge", d3.forceManyBody().strength(-30))
+            .force("center", d3.forceCenter(boardWidth / 2, boardHeight / 2))
+            .force("collision", d3.forceCollide().radius(d => Math.max(d.width, d.height)))
+            .force('link', d3.forceLink()
+                .id(d => d.id)
+                .distance(60)
+                .links(linesData.map(d => ({ source: d.fromId, target: d.toId })))
+            );
+
+        // Add elements and lines to the SVG
+        const elements = svg.selectAll(".element")
+            .data(elementsData)
+            .enter()
+            .append("rect")
+            .attr("class", "element")
+            .attr("width", d => d.width)
+            .attr("height", d => d.height)
+            .attr("x", d => d.x)
+            .attr("y", d => d.y)
+            .on("click", function (event, d) {
+                // Log the clicked element's data
+                console.log("Clicked Element:", d, this);
+            });
+
+        const lines = svg.selectAll(".line")
+            .data(linesData)
+            .enter().append("line")
+            .attr("class", "line");
+
+        // Function to update positions on each tick
+        function updatePositions() {
+            elements.attr("x", d => Math.max(0, Math.min(boardWidth - d.width, d.x)))
+                .attr("y", d => Math.max(0, Math.min(boardHeight - d.height, d.y)));
+
+            lines.attr("x1", d => elementsData.find(e => e.id === d.fromId).x + elementsData.find(e => e.id === d.fromId).width / 2)
+                .attr("y1", d => elementsData.find(e => e.id === d.fromId).y + elementsData.find(e => e.id === d.fromId).height / 2)
+                .attr("x2", d => elementsData.find(e => e.id === d.toId).x + elementsData.find(e => e.id === d.toId).width / 2)
+                .attr("y2", d => elementsData.find(e => e.id === d.toId).y + elementsData.find(e => e.id === d.toId).height / 2);
+        }
+
+        // Event listener for the button
+        document.getElementById("runSimulation").addEventListener("click", () => {
+            // Start the simulation and add a smooth transition
+            simulation.on("tick", () => {
+                updatePositions();
+                elements.transition().duration(200).attrTween("x", interpolateX).attrTween("y", interpolateY);
+                lines.transition().duration(200).attr("x1", d => elementsData.find(e => e.id === d.fromId).x + elementsData.find(e => e.id === d.fromId).width / 2)
+                    .attr("y1", d => elementsData.find(e => e.id === d.fromId).y + elementsData.find(e => e.id === d.fromId).height / 2)
+                    .attr("x2", d => elementsData.find(e => e.id === d.toId).x + elementsData.find(e => e.id === d.toId).width / 2)
+                    .attr("y2", d => elementsData.find(e => e.id === d.toId).y + elementsData.find(e => e.id === d.toId).height / 2);
+            });
+            simulation.restart();
+        });
+
+        // Function to interpolate x values for smooth transition
+        function interpolateX(d) {
+            const interpolate = d3.interpolate(this.getAttribute("x"), d.x);
+            return t => d.x = interpolate(t);
+        }
+
+        // Function to interpolate y values for smooth transition
+        function interpolateY(d) {
+            const interpolate = d3.interpolate(this.getAttribute("y"), d.y);
+            return t => d.y = interpolate(t);
+        }
+    </script>
+</body>
+
+</html>
