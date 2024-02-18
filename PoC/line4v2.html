@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <style>
+    svg {
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+  const svgWidth = 400;
+  const svgHeight = 400;
+
+  const x1 = 50;
+  const y1 = 100;
+  const x2 = 350;
+  const y2 = 150;
+  const arrowLength = 10;
+  const arrowWidth = 4;
+
+  // Function to create an arrow using lines
+  function drawArrow() {
+    const svg = d3.select("body").append("svg")
+      .attr("width", svgWidth)
+      .attr("height", svgHeight);
+
+    // Draw the main line
+    svg.append("line")
+      .attr("x1", x1)
+      .attr("y1", y1)
+      .attr("x2", x2)
+      .attr("y2", y2)
+      .attr("stroke", "blue")
+      .attr("stroke-width", 2);
+
+    // Calculate the angle of the line
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+
+    // Draw the first arrow line
+    svg.append("line")
+      .attr("x1", x2)
+      .attr("y1", y2)
+      .attr("x2", x2 - arrowLength * Math.cos(angle - Math.PI / 6))
+      .attr("y2", y2 - arrowLength * Math.sin(angle - Math.PI / 6))
+      .attr("stroke", "blue")
+      .attr("stroke-width", 2);
+
+    // Draw the second arrow line
+    svg.append("line")
+      .attr("x1", x2)
+      .attr("y1", y2)
+      .attr("x2", x2 - arrowLength * Math.cos(angle + Math.PI / 6))
+      .attr("y2", y2 - arrowLength * Math.sin(angle + Math.PI / 6))
+      .attr("stroke", "blue")
+      .attr("stroke-width", 2);
+  }
+
+  // Call the function
+  drawArrow();
+</script>
+
+</body>
+</html>
